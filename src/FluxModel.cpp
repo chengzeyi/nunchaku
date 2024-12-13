@@ -205,11 +205,17 @@ Tensor Attention::forward(Tensor qkv, Tensor pool_qkv, float sparsityRatio) {
             false, false, false, -1, -1
         ).front();
     } else {
-        raw_attn_output = mha_fwd(
-            q, k, v,
+        raw_attn_output = mha_varlen_fwd(q, k, v,
+            cu_seqlens,
+            cu_seqlens,
+            num_tokens,
+            num_tokens,
             0.0f,
             pow(q.shape[-1], (-0.5)),
-            false, -1, -1, false
+            false,
+            true,
+            -1, -1,
+            false
         ).front();
     }
 
