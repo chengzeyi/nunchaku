@@ -189,19 +189,29 @@ Tensor Attention::forward(Tensor qkv, Tensor pool_qkv, float sparsityRatio) {
 
     spdlog::debug("q,k,v={}", q.shape.str());
 
-    Tensor raw_attn_output = mha_fwd_block(
-        q, k, v,
-        cu_seqlens, cu_seqlens,
-        POOL_SIZE, POOL_SIZE,
-        headmask_type,
-        {},
-        blockmask,
-        num_tokens,
-        num_tokens,
-        0.0f,
-        pow(q.shape[-1], (-0.5)),
-        false, false, false, -1, -1
-    ).front();
+    Tensor raw_attn_output;
+    if (blockmask) {
+        raw_attn_output = mha_fwd_block(
+            q, k, v,
+            cu_seqlens, cu_seqlens,
+            POOL_SIZE, POOL_SIZE,
+            headmask_type,
+            {},
+            blockmask,
+            num_tokens,
+            num_tokens,
+            0.0f,
+            pow(q.shape[-1], (-0.5)),
+            false, false, false, -1, -1
+        ).front();
+    } else {
+        raw_attn_output = mha_fwd(
+            q, k, v,
+            0.0f,
+            pow(q.shape[-1], (-0.5)),
+            false, -1, -1, false
+        ).front();
+    }
 
     debug("raw_attn_output", raw_attn_output);
 
