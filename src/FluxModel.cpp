@@ -126,9 +126,12 @@ Tensor Attention::forward(Tensor qkv, Tensor pool_qkv, float sparsityRatio) {
     assert(qkv.shape[2] == num_heads * dim_head * 3);
 
     constexpr int POOL_SIZE = 128;
-    const int pool_tokens = num_tokens / POOL_SIZE;
 
-    Tensor blockmask;
+    auto round_multiple = [](int x, int m) { return (x + m - 1) / m * m; };
+
+    const int pool_tokens = round_multiple(num_tokens, POOL_SIZE);
+
+    std::optional<Tensor> blockmask;
 
     if (pool_qkv.valid()) {
         assert(pool_qkv.shape[0] == batch_size);
@@ -136,9 +139,8 @@ Tensor Attention::forward(Tensor qkv, Tensor pool_qkv, float sparsityRatio) {
         assert(pool_qkv.shape[2] == num_heads * dim_head * 3);
     }
 
-    Tensor pool_score = Tensor::allocate({batch_size, num_heads, pool_tokens, pool_tokens}, Tensor::FP32, device);
-
     if (pool_qkv.valid() && sparsityRatio > 0) {
+        Tensor pool_score = Tensor::allocate({batch_size, num_heads, pool_tokens, pool_tokens}, Tensor::FP32, device);
         pool_qkv = pool_qkv.view({batch_size, pool_tokens, 3, num_heads, dim_head});
         pool_qkv = pool_qkv.transpose(1, 2).transpose(2, 3);    // [batch_size, 3, num_heads, poolTokens, dim_head]
         for (int i = 0; i < batch_size; i++) {
@@ -147,10 +149,9 @@ Tensor Attention::forward(Tensor qkv, Tensor pool_qkv, float sparsityRatio) {
             Tensor pool_s = pool_score.slice(0, i, i+1);
             gemm_batched_fp16(pool_q, pool_k, pool_s);
         }
+        blockmask = topk(pool_score, pool_tokens * (1 - sparsityRatio));
     }
     
-    blockmask = topk(pool_score, pool_tokens * (1 - sparsityRatio));
-
     if (cu_seqlens_cpu.valid()) {
         if (cu_seqlens_cpu.shape[0] != batch_size + 1) {
             cu_seqlens_cpu = Tensor{};
