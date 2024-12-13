@@ -213,7 +213,7 @@ Tensor Attention::forward(Tensor qkv, Tensor pool_qkv, float sparsityRatio) {
             0.0f,
             pow(q.shape[-1], (-0.5)),
             false,
-            true,
+            false,
             -1, -1,
             false
         ).front();
